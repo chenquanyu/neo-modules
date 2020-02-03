@@ -31,6 +31,7 @@ namespace Neo.Network.RPC.Tests
             handlerMock = new Mock<HttpMessageHandler>(MockBehavior.Strict);
 
             // use real http client with mocked handler here
+            // test commit
             var httpClient = new HttpClient(handlerMock.Object)
             {
                 BaseAddress = new Uri("http://seed1.neo.org:10331"),
