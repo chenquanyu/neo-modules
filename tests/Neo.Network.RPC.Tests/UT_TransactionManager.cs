@@ -39,7 +39,7 @@ namespace Neo.Network.RPC.Tests
             var mockRpc = new Mock<RpcClient>(MockBehavior.Strict, "http://seed1.neo.org:10331", null, null);
 
             // MockHeight
-            mockRpc.Setup(p => p.RpcSend("getblockcount")).Returns(100).Verifiable();
+            mockRpc.Setup(p => p.RpcSendAsync("getblockcount")).ReturnsAsync(100).Verifiable();
 
             // MockGasBalance
             byte[] balanceScript = NativeContract.GAS.Hash.MakeScript("balanceOf", sender);
@@ -70,8 +70,8 @@ namespace Neo.Network.RPC.Tests
                 State = VMState.HALT
             };
 
-            mockClient.Setup(p => p.RpcSend("invokescript", It.Is<JObject[]>(j => j[0].AsString() == script.ToHexString())))
-                .Returns(result.ToJson())
+            mockClient.Setup(p => p.RpcSendAsync("invokescript", It.Is<JObject[]>(j => j[0].AsString() == script.ToHexString())))
+                .ReturnsAsync(result.ToJson())
                 .Verifiable();
         }
 

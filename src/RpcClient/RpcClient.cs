@@ -17,88 +17,8 @@ namespace Neo.Network.RPC
     /// <summary>
     /// The RPC client to call NEO RPC methods
     /// </summary>
-    public class RpcClient : IDisposable
+    partial class RpcClient
     {
-        private HttpClient httpClient;
-
-        public RpcClient(string url, string rpcUser = default, string rpcPass = default)
-        {
-            httpClient = new HttpClient() { BaseAddress = new Uri(url) };
-            if (!string.IsNullOrEmpty(rpcUser) && !string.IsNullOrEmpty(rpcPass))
-            {
-                string token = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{rpcUser}:{rpcPass}"));
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-            }
-        }
-
-        public RpcClient(HttpClient client)
-        {
-            httpClient = client;
-        }
-
-        #region IDisposable Support
-        private bool disposedValue = false; // To detect redundant calls
-
-        protected virtual void Dispose(bool disposing)
-        {
-            if (!disposedValue)
-            {
-                if (disposing)
-                {
-                    httpClient?.Dispose();
-                }
-
-                httpClient = null;
-                disposedValue = true;
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-        }
-        #endregion
-
-        public async Task<RpcResponse> SendAsync(RpcRequest request)
-        {
-            var requestJson = request.ToJson().ToString();
-            using var result = await httpClient.PostAsync(httpClient.BaseAddress, new StringContent(requestJson, Encoding.UTF8));
-            var content = await result.Content.ReadAsStringAsync();
-            var response = RpcResponse.FromJson(JObject.Parse(content));
-            response.RawResponse = content;
-
-            if (response.Error != null)
-            {
-                throw new RpcException(response.Error.Code, response.Error.Message);
-            }
-
-            return response;
-        }
-
-        public RpcResponse Send(RpcRequest request)
-        {
-            try
-            {
-                return SendAsync(request).Result;
-            }
-            catch (AggregateException ex)
-            {
-                throw ex.GetBaseException();
-            }
-        }
-
-        public virtual JObject RpcSend(string method, params JObject[] paraArgs)
-        {
-            var request = new RpcRequest
-            {
-                Id = 1,
-                JsonRpc = "2.0",
-                Method = method,
-                Params = paraArgs
-            };
-            return Send(request).Result;
-        }
-
         #region Blockchain
 
         /// <summary>
@@ -106,7 +26,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetBestBlockHash()
         {
-            return RpcSend("getbestblockhash").AsString();
+            return GetBestBlockHashAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -115,11 +35,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetBlockHex(string hashOrIndex)
         {
-            if (int.TryParse(hashOrIndex, out int index))
-            {
-                return RpcSend("getblock", index).AsString();
-            }
-            return RpcSend("getblock", hashOrIndex).AsString();
+            return GetBlockHexAsync(hashOrIndex).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -127,11 +43,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcBlock GetBlock(string hashOrIndex)
         {
-            if (int.TryParse(hashOrIndex, out int index))
-            {
-                return RpcBlock.FromJson(RpcSend("getblock", index, true));
-            }
-            return RpcBlock.FromJson(RpcSend("getblock", hashOrIndex, true));
+            return GetBlockAsync(hashOrIndex).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -139,7 +51,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public uint GetBlockCount()
         {
-            return (uint)RpcSend("getblockcount").AsNumber();
+            return GetBlockCountAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -147,7 +59,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetBlockHash(int index)
         {
-            return RpcSend("getblockhash", index).AsString();
+            return GetBlockHashAsync(index).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -155,11 +67,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetBlockHeaderHex(string hashOrIndex)
         {
-            if (int.TryParse(hashOrIndex, out int index))
-            {
-                return RpcSend("getblockheader", index).AsString();
-            }
-            return RpcSend("getblockheader", hashOrIndex).AsString();
+            return GetBlockHeaderHexAsync(hashOrIndex).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -167,11 +75,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcBlockHeader GetBlockHeader(string hashOrIndex)
         {
-            if (int.TryParse(hashOrIndex, out int index))
-            {
-                return RpcBlockHeader.FromJson(RpcSend("getblockheader", index, true));
-            }
-            return RpcBlockHeader.FromJson(RpcSend("getblockheader", hashOrIndex, true));
+            return GetBlockHeaderAsync(hashOrIndex).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -179,7 +83,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public ContractState GetContractState(string hash)
         {
-            return RpcContractState.FromJson(RpcSend("getcontractstate", hash)).ContractState;
+            return GetContractStateAsync(hash).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -187,7 +91,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string[] GetRawMempool()
         {
-            return ((JArray)RpcSend("getrawmempool")).Select(p => p.AsString()).ToArray();
+            return GetRawMempoolAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -196,7 +100,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcRawMemPool GetRawMempoolBoth()
         {
-            return RpcRawMemPool.FromJson(RpcSend("getrawmempool", true));
+            return GetRawMempoolBothAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -204,7 +108,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetRawTransactionHex(string txHash)
         {
-            return RpcSend("getrawtransaction", txHash).AsString();
+            return GetRawTransactionHexAsync(txHash).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -213,7 +117,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcTransaction GetRawTransaction(string txHash)
         {
-            return RpcTransaction.FromJson(RpcSend("getrawtransaction", txHash, true));
+            return GetRawTransactionAsync(txHash).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -221,12 +125,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetStorage(string scriptHashOrId, string key)
         {
-            if (int.TryParse(scriptHashOrId, out int id))
-            {
-                return RpcSend("getstorage", id, key).AsString();
-            }
-
-            return RpcSend("getstorage", scriptHashOrId, key).AsString();
+            return GetStorageAsync(scriptHashOrId, key).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -234,7 +133,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public uint GetTransactionHeight(string txHash)
         {
-            return uint.Parse(RpcSend("gettransactionheight", txHash).AsString());
+            return GetTransactionHeightAsync(txHash).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -242,7 +141,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcValidator[] GetValidators()
         {
-            return ((JArray)RpcSend("getvalidators")).Select(p => RpcValidator.FromJson(p)).ToArray();
+            return GetValidatorsAsync().GetAwaiter().GetResult();
         }
 
         #endregion Blockchain
@@ -254,7 +153,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public int GetConnectionCount()
         {
-            return (int)RpcSend("getconnectioncount").AsNumber();
+            return GetConnectionCountAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -262,7 +161,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcPeers GetPeers()
         {
-            return RpcPeers.FromJson(RpcSend("getpeers"));
+            return GetPeersAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -270,7 +169,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcVersion GetVersion()
         {
-            return RpcVersion.FromJson(RpcSend("getversion"));
+            return GetVersionAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -278,7 +177,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public UInt256 SendRawTransaction(byte[] rawTransaction)
         {
-            return UInt256.Parse(RpcSend("sendrawtransaction", rawTransaction.ToHexString())["hash"].AsString());
+            return SendRawTransactionAsync(rawTransaction).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -286,7 +185,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public UInt256 SendRawTransaction(Transaction transaction)
         {
-            return SendRawTransaction(transaction.ToArray());
+            return SendRawTransactionAsync(transaction).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -294,7 +193,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public UInt256 SubmitBlock(byte[] block)
         {
-            return UInt256.Parse(RpcSend("submitblock", block.ToHexString())["hash"].AsString());
+            return SubmitBlockAsync(block).GetAwaiter().GetResult();
         }
 
         #endregion Node
@@ -307,7 +206,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcInvokeResult InvokeFunction(string scriptHash, string operation, RpcStack[] stacks)
         {
-            return RpcInvokeResult.FromJson(RpcSend("invokefunction", scriptHash, operation, stacks.Select(p => p.ToJson()).ToArray()));
+            return InvokeFunctionAsync(scriptHash, operation, stacks).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -316,12 +215,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcInvokeResult InvokeScript(byte[] script, params UInt160[] scriptHashesForVerifying)
         {
-            List<JObject> parameters = new List<JObject>
-            {
-                script.ToHexString()
-            };
-            parameters.AddRange(scriptHashesForVerifying.Select(p => (JObject)p.ToString()));
-            return RpcInvokeResult.FromJson(RpcSend("invokescript", parameters.ToArray()));
+            return InvokeScriptAsync(script, scriptHashesForVerifying).GetAwaiter().GetResult();
         }
 
         #endregion SmartContract
@@ -333,7 +227,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcPlugin[] ListPlugins()
         {
-            return ((JArray)RpcSend("listplugins")).Select(p => RpcPlugin.FromJson(p)).ToArray();
+            return ListPluginsAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -341,7 +235,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcValidateAddressResult ValidateAddress(string address)
         {
-            return RpcValidateAddressResult.FromJson(RpcSend("validateaddress", address));
+            return ValidateAddressAsync(address).GetAwaiter().GetResult();
         }
 
         #endregion Utilities
@@ -353,7 +247,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public bool CloseWallet()
         {
-            return RpcSend("closewallet").AsBoolean();
+            return CloseWalletAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -361,7 +255,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string DumpPrivKey(string address)
         {
-            return RpcSend("dumpprivkey", address).AsString();
+            return DumpPrivKeyAsync(address).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -371,9 +265,7 @@ namespace Neo.Network.RPC
         /// <returns>new address as string</returns>
         public BigDecimal GetBalance(string assetId)
         {
-            byte decimals = new Nep5API(this).Decimals(UInt160.Parse(assetId));
-            BigInteger balance = BigInteger.Parse(RpcSend("getbalance", assetId)["balance"].AsString());
-            return new BigDecimal(balance, decimals);
+            return GetBalanceAsync(assetId).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -381,7 +273,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public string GetNewAddress()
         {
-            return RpcSend("getnewaddress").AsString();
+            return GetNewAddressAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -389,7 +281,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public BigInteger GetUnclaimedGas()
         {
-            return BigInteger.Parse(RpcSend("getunclaimedgas").AsString());
+            return GetUnclaimedGasAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -397,7 +289,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcAccount ImportPrivKey(string wif)
         {
-            return RpcAccount.FromJson(RpcSend("importprivkey", wif));
+            return ImportPrivKeyAsync(wif).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -405,7 +297,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public List<RpcAccount> ListAddress()
         {
-            return ((JArray)RpcSend("listaddress")).Select(p => RpcAccount.FromJson(p)).ToList();
+            return ListAddressAsync().GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -414,7 +306,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public bool OpenWallet(string path, string password)
         {
-            return RpcSend("openwallet", path, password).AsBoolean();
+            return OpenWalletAsync(path, password).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -423,7 +315,7 @@ namespace Neo.Network.RPC
         /// <returns>This function returns Signed Transaction JSON if successful, ContractParametersContext JSON if signing failed.</returns>
         public JObject SendFrom(string assetId, string fromAddress, string toAddress, string amount)
         {
-            return RpcSend("sendfrom", assetId, fromAddress, toAddress, amount);
+            return SendFromAsync(assetId, fromAddress, toAddress, amount).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -432,14 +324,7 @@ namespace Neo.Network.RPC
         /// <returns>This function returns Signed Transaction JSON if successful, ContractParametersContext JSON if signing failed.</returns>
         public JObject SendMany(string fromAddress, IEnumerable<RpcTransferOut> outputs)
         {
-            var parameters = new List<JObject>();
-            if (!string.IsNullOrEmpty(fromAddress))
-            {
-                parameters.Add(fromAddress);
-            }
-            parameters.Add(outputs.Select(p => p.ToJson()).ToArray());
-
-            return RpcSend("sendmany", paraArgs: parameters.ToArray());
+            return SendManyAsync(fromAddress, outputs).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -448,7 +333,7 @@ namespace Neo.Network.RPC
         /// <returns>This function returns Signed Transaction JSON if successful, ContractParametersContext JSON if signing failed.</returns>
         public JObject SendToAddress(string assetId, string address, string amount)
         {
-            return RpcSend("sendtoaddress", assetId, address, amount);
+            return SendToAddressAsync(assetId, address, amount).GetAwaiter().GetResult();
         }
 
         #endregion Utilities
@@ -461,7 +346,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcApplicationLog GetApplicationLog(string txHash)
         {
-            return RpcApplicationLog.FromJson(RpcSend("getapplicationlog", txHash));
+            return GetApplicationLogAsync(txHash).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -473,9 +358,7 @@ namespace Neo.Network.RPC
         /// <param name="endTimestamp">The end block Timestamp, default to UtcNow</param>
         public RpcNep5Transfers GetNep5Transfers(string address, ulong? startTimestamp = default, ulong? endTimestamp = default)
         {
-            startTimestamp ??= 0;
-            endTimestamp ??= DateTime.UtcNow.ToTimestampMS();
-            return RpcNep5Transfers.FromJson(RpcSend("getnep5transfers", address, startTimestamp, endTimestamp));
+            return GetNep5TransfersAsync(address, startTimestamp, endTimestamp).GetAwaiter().GetResult();
         }
 
         /// <summary>
@@ -484,7 +367,7 @@ namespace Neo.Network.RPC
         /// </summary>
         public RpcNep5Balances GetNep5Balances(string address)
         {
-            return RpcNep5Balances.FromJson(RpcSend("getnep5balances", address));
+            return GetNep5BalancesAsync(address).GetAwaiter().GetResult();
         }
 
         #endregion Plugins
